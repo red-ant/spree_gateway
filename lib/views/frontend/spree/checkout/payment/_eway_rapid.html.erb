@@ -1,0 +1,52 @@
+<%= render "spree/checkout/payment/gateway", payment_method: payment_method %>
+
+<script>
+  Spree.ewayRapidPaymentMethod = $('#payment_method_<%= payment_method.id %>');
+
+  var paramPrefix = "payment_source[<%= payment_method.id %>]";
+  var encryptKey = "<%= payment_method.get_preference(:client_side_encryption_key) %>";
+
+  $(document).ready(function() {
+    if (!encryptKey) {
+      return;
+    }
+
+    var $form = $('#checkout_form_payment');
+    $form.attr('data-eway-encrypt-key', encryptKey);
+
+    var sanitisedVal = function(field) {
+      var val = $(field).val();
+      return val.replace(/[^0-9]/g, '');
+    };
+
+    var cloneEncryptedField = function(field) {
+      var $field = $(field);
+      var $fieldset = $field.closest('fieldset');
+
+      var $clone = $fieldset.find('input[type="hidden"][name="'+ $field.attr('name') +'"]');
+      if ($clone.length === 0) {
+        $clone = $('<input type="hidden">');
+        $clone.attr('name', $field.attr('name'));
+        $clone.appendTo($fieldset);
+      }
+
+      var sanitisedValue = sanitisedVal($field);
+      var encryptedValue = window.eCrypt.encryptValue(sanitisedValue);
+      $clone.val(encryptedValue);
+    }
+
+    $form.find('[data-hook="buttons"]').click(function() {
+      var $number = Spree.ewayRapidPaymentMethod.find('[name="'+ paramPrefix +'[number]"]');
+      var $verification = Spree.ewayRapidPaymentMethod.find('[name="'+ paramPrefix +'[verification_value]"]');
+
+      cloneEncryptedField($number);
+      cloneEncryptedField($verification);
+    });
+
+    // Apend the eCrypt script *after* the form
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://secure.ewaypayments.com/scripts/eCrypt.js';
+    $form.after(script);
+  });
+</script>
